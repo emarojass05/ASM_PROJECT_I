@@ -8,6 +8,9 @@ y simular ecos con retardos controlados.
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import os
+
+FIG_DIR = os.path.join(os.path.dirname(__file__), "figuras")
 
 FIG_DIR = os.path.join(os.path.dirname(__file__), "figuras")
 
@@ -24,13 +27,18 @@ def generar_chirp(fs, duracion, f_inicial, f_final):
     return np.cos(fase)
 
 
-def generar_eco(x, retardo, amplitud=0.6):
-    """Genera una copia retardada y atenuada de una señal."""
+def generar_ecos(x, ecos):
+    """Genera varios ecos retardados y atenuados. """
 
-    y = np.zeros(len(x) + retardo)
+    max_retardo = max(retardo for retardo, _ in ecos)
 
-    y[retardo:retardo + len(x)] = amplitud * x
+    y = np.zeros(len(x) + max_retardo)
 
+    for retardo, amplitud in ecos:
+        inicio = retardo
+        fin = retardo + len(x)
+
+        y[inicio:fin] += amplitud * x
 
     return y
 
