@@ -77,12 +77,18 @@ def graficar_senal(t, x, frecuencias, magnitud, fase, titulo, numero_figura):
     ax[2].grid(True)
 
     fig.tight_layout()
-    plt.show()
 
-    
     out_path = os.path.join(FIG_DIR, f"magnitud_fase{numero_figura}.png")
     fig.savefig(out_path, dpi=150)
     print("Figura guardada en", out_path)
+
+    # Si no hay pantalla disponible (por ejemplo, corriendo por SSH o en un
+    # servidor de correccion automatica), plt.show() puede fallar o quedar
+    # esperando; se ignora el error para que el script no se cuelgue.
+    try:
+        plt.show()
+    except Exception:
+        pass
 
 
 def analizar_senal(x, t, fs, titulo, fig):

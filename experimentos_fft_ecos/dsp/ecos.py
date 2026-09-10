@@ -5,8 +5,12 @@ Funciones para generar una señal acústica conocida
 y simular ecos con retardos controlados.
 """
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
+
+FIG_DIR = os.path.join(os.path.dirname(__file__), "figuras")
+
 
 def generar_chirp(fs, duracion, f_inicial, f_final):
     """Genera un chirp lineal entre dos frecuencias."""
@@ -61,7 +65,18 @@ def main():
     plt.legend()
     plt.grid(True)
 
-    plt.show()
+    os.makedirs(FIG_DIR, exist_ok=True)
+    out_path = os.path.join(FIG_DIR, "senal_tx_eco.png")
+    plt.savefig(out_path, dpi=150)
+    print("Figura guardada en", out_path)
+
+    # Si no hay pantalla disponible (por ejemplo, corriendo por SSH o en un
+    # servidor de correccion automatica), plt.show() puede fallar o quedar
+    # esperando; se ignora el error para que el script no se cuelgue.
+    try:
+        plt.show()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
