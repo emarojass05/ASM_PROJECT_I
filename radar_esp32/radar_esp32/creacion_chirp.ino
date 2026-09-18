@@ -15,6 +15,9 @@ const int N = FS * DURACION; // numero de muestras
 
 uint8_t chirp[N];
 
+volatile int indiceChirp = 0;
+volatile bool reproduciendo = false;
+
 void generar_chirp(){
   float a = (F_FINAL - F_INICIAL) / DURACION;
 
@@ -33,8 +36,29 @@ void generar_chirp(){
 
 void reproducir_chirp() {
 
-    for (int i = 0; i < N; i++) {
-        dacWrite(SPEAKER, chirp[i]);
-        delayMicroseconds(1000000 / FS);
+    indiceChirp = 0;
+    reproduciendo = true;
+}
+
+
+void ARDUINO_ISR_ATTR siguienteMuestra() {
+
+    if (!reproduciendo) {
+        return;
+    }
+
+    if (indiceChirp < N) {
+
+        dacWrite(SPEAKER, chirp[indiceChirp]);
+
+        indiceChirp++;
+
+    } else {
+
+        reproduciendo = false;
+        indiceChirp = 0;
+
+        // Punto medio del DAC = silencio aproximado
+        dacWrite(SPEAKER, 128);
     }
 }
