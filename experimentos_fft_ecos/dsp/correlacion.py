@@ -46,23 +46,44 @@ def correlacion_fft(x, y):
 
     return np.real(correlacion[:len(y) - len(x) + 1])
 
-def detectar_picos(correlacion, umbral_relativo=0.25, distancia_minima=1):
+def detectar_picos(
+    correlacion,
+    umbral_relativo=0.25,
+    distancia_minima=1):
+    
     """Encuentra los principales picos de una correlación."""
     valores = np.abs(correlacion)
 
-    umbral = np.max(valores) * umbral_relativo
+    if len(valores) == 0:
+        return []
 
+    umbral = np.max(valores) * umbral_relativo
     candidatos = []
 
-    for i in range(1, len(valores) - 1):
-        if (
-            valores[i] >= umbral
-            and valores[i] > valores[i - 1]
-            and valores[i] >= valores[i + 1]
-        ):
+    for i in range(len(valores)):
+
+        if valores[i] < umbral:
+            continue
+
+        # Si estamos en el primer elemento,
+        # no existe vecino izquierdo.
+        max_izquierda = (
+            i == 0
+            or valores[i] > valores[i - 1]
+        )
+
+        # Si estamos en el último elemento,
+        # no existe vecino derecho.
+        max_derecha = (
+            i == len(valores) - 1
+            or valores[i] >= valores[i + 1]
+        )
+
+        if max_izquierda and max_derecha:
             candidatos.append(i)
 
-    # Primero se consideran los picos de mayor amplitud.
+    # Ordenar los candidatos desde el pico más fuerte
+    # hasta el más débil.
     candidatos.sort(
         key=lambda i: valores[i],
         reverse=True
@@ -70,6 +91,8 @@ def detectar_picos(correlacion, umbral_relativo=0.25, distancia_minima=1):
 
     picos = []
 
+    # Evitar detectar varios máximos pertenecientes
+    # al mismo eco.
     for candidato in candidatos:
         if all(
             abs(candidato - pico) >= distancia_minima
