@@ -10,8 +10,7 @@ void ARDUINO_ISR_ATTR tomarMuestraMic() {
     }
 
     if (indiceMic < N_MIC) {
-
-        muestrasMic[indiceMic] = analogRead(MIC);
+        muestrasMic[indiceMic] = adc1_get_raw(ADC1_CHANNEL_6);
         indiceMic++;
 
     } else {

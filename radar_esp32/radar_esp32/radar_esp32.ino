@@ -1,6 +1,7 @@
 // archivo principal para compilacion
 // Implementacion del radar en fisico con microcontrolador ESP32 
 #include <math.h>
+#include <driver/adc.h>
 
 // -------------------------- Pines y constantes ------------------------
 const int MIC = 34;
@@ -38,6 +39,9 @@ void setup() {
     timerMic = timerBegin(FS);
     timerAttachInterrupt(timerMic, &tomarMuestraMic);
     timerAlarm(timerMic, 1, true, 0);
+
+    adc1_config_width(ADC_WIDTH_BIT_12);
+    adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_11);
 
 }
 
