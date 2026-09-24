@@ -35,8 +35,8 @@ void generar_chirp(){
 } 
 
 void reproducir_chirp() {
-
     indiceChirp = 0;
+    tiempoInicio = micros();
     reproduciendo = true;
 }
 
@@ -50,15 +50,16 @@ void ARDUINO_ISR_ATTR siguienteMuestra() {
     if (indiceChirp < N) {
 
         dacWrite(SPEAKER, chirp[indiceChirp]);
-
         indiceChirp++;
 
     } else {
 
+        tiempoFin = micros();
+
         reproduciendo = false;
         indiceChirp = 0;
+        chirpTerminado = true;
 
-        // Punto medio del DAC = silencio aproximado
         dacWrite(SPEAKER, 128);
     }
 }
