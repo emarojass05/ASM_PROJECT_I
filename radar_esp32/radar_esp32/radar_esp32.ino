@@ -45,6 +45,16 @@ void loop() {
     // esperar a que termine la ventana de captura
   }
 
+  // escribir "cal" en el Monitor Serial y enter para ver los 5 picos mas fuertes
+  // de esta captura (para calibrar MUESTRAS_GUARDA con datos reales)
+  if (Serial.available()) {
+    String comando = Serial.readStringUntil('\n');
+    comando.trim();
+    if (comando == "cal") {
+      calibrar_correlacion();
+    }
+  }
+
   int retardo = detectar_retardo();
   float frecuencia = analizar_espectro();
 
