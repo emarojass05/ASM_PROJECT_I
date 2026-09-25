@@ -9,7 +9,7 @@
 #define FS 48000 // frecuencia de muestreo
 #define F_INICIAL 2000.0
 #define F_FINAL 8000.0
-#define DURACION 0.002 // 1ms daba muy poca energia y el eco se perdia en el ruido; 2ms sigue detectando bajo 1m
+#define DURACION 0.0005 // 0.5ms: lo mas corto que sigue teniendo forma de chirp reconocible; da un minimo de ~14cm
 
 const int N = FS * DURACION; // numero de muestras
 

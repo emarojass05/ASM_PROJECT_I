@@ -55,7 +55,7 @@ void loop() {
     }
   }
 
-  int retardo = detectar_retardo();
+  int retardo = filtrar_retardo(detectar_retardo());
   float frecuencia = analizar_espectro();
 
   if (retardo >= 0) {

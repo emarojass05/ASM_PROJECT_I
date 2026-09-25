@@ -2,8 +2,8 @@
 // deteccion del retardo del eco por correlacion y calculo de distancia
 
 #define V_SONIDO 343.0 // velocidad del sonido en m/s
-#define MUESTRAS_GUARDA 120 // debe ser mayor a N (96 con el chirp de 2ms); da un piso de ~43cm de distancia minima
-                            // calibrar con hardware real si sigue detectando falsos ecos
+#define MUESTRAS_GUARDA 40 // debe ser mayor a N (24 con el chirp de 0.5ms); da un piso de ~14cm de distancia minima
+                           // el limite fisico real esta cerca de este valor, no se puede bajar mucho mas
 
 float plantilla[N];
 
@@ -92,6 +92,37 @@ void calibrar_correlacion() {
     Serial.println(" cm");
   }
   Serial.println("-----------------------------------------------");
+}
+
+int filtrar_retardo(int retardo) {
+
+  // guarda las ultimas 5 lecturas validas y devuelve la mediana,
+  // para no saltar entre el eco real y reflejos multiples (multipath) de un ciclo a otro
+
+  static int historial[5] = {-1, -1, -1, -1, -1};
+  static int indice = 0;
+
+  if (retardo < 0) {
+    return retardo; // no se detecto nada, no se toca el historial
+  }
+
+  historial[indice] = retardo;
+  indice = (indice + 1) % 5;
+
+  int ordenado[5];
+  memcpy(ordenado, historial, sizeof(historial));
+
+  for (int i = 1; i < 5; i++) {
+    int clave = ordenado[i];
+    int j = i - 1;
+    while (j >= 0 && ordenado[j] > clave) {
+      ordenado[j + 1] = ordenado[j];
+      j--;
+    }
+    ordenado[j + 1] = clave;
+  }
+
+  return ordenado[2]; // mediana
 }
 
 float calcular_distancia(int retardo_muestras) {

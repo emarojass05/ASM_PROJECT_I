@@ -3,7 +3,7 @@
 
 #include <driver/adc.h>
 
-#define DURACION_CAPTURA 0.020 // segundos
+#define DURACION_CAPTURA 0.010 // segundos; alcanza para cubrir bien hasta 60cm (con margen), ya no se necesitan varios metros
 const int N_MIC = FS * DURACION_CAPTURA; // numero de muestras a capturar
 
 volatile uint16_t muestrasMic[N_MIC];
