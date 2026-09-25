@@ -9,7 +9,7 @@
 #define FS 48000 // frecuencia de muestreo
 #define F_INICIAL 2000.0
 #define F_FINAL 8000.0
-#define DURACION 0.005
+#define DURACION 0.001 // se acorto de 5ms a 1ms para poder detectar objetos a menos de 1m
 
 const int N = FS * DURACION; // numero de muestras
 

@@ -45,9 +45,10 @@ void calcular_magnitudes(float* re, float* im, float* magnitud, int n) {
 
 float analizar_espectro() {
 
-  float re[N_FFT];
-  float im[N_FFT];
-  float magnitud[N_FFT / 2];
+  // static: para que no compitan con la recursion del fft por espacio en el stack
+  static float re[N_FFT];
+  static float im[N_FFT];
+  static float magnitud[N_FFT / 2];
 
   for (int i = 0; i < N_FFT; i++) {
     re[i] = (i < N_MIC) ? (float)muestrasMic[i] : 0.0;

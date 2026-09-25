@@ -2,7 +2,8 @@
 // deteccion del retardo del eco por correlacion y calculo de distancia
 
 #define V_SONIDO 343.0 // velocidad del sonido en m/s
-#define MUESTRAS_GUARDA 50 // muestras a ignorar por el acople directo (calibrar con hardware real)
+#define MUESTRAS_GUARDA 60 // debe ser mayor a N (48 con el chirp de 1ms); da un piso de ~21cm de distancia minima
+                           // calibrar con hardware real si sigue detectando falsos ecos
 
 float plantilla[N];
 

@@ -2,7 +2,7 @@
 // Implementacion del radar en fisico con microcontrolador ESP32
 #include <math.h>
 
-SET_LOOP_TASK_STACK_SIZE(16384); // el fft recursivo necesita mas stack que el default (8kb)
+SET_LOOP_TASK_STACK_SIZE(32768); // el fft recursivo necesita bastante mas stack que el default (8kb); 16kb no alcanzo
 
 // -------------------------- Pines y constantes ------------------------
 const int MIC = 34;
@@ -49,15 +49,16 @@ void loop() {
   float frecuencia = analizar_espectro();
 
   if (retardo >= 0) {
-    float distancia = calcular_distancia(retardo);
+    float distancia_m = calcular_distancia(retardo);
+    float distancia_cm = distancia_m * 100.0;
 
     Serial.print("Retardo: ");
     Serial.print(retardo);
     Serial.print(" muestras | Distancia: ");
-    Serial.print(distancia);
-    Serial.println(" m");
+    Serial.print(distancia_cm);
+    Serial.println(" cm");
 
-    mostrarResultado(distancia, frecuencia);
+    mostrarResultado(distancia_cm, frecuencia);
 
   } else {
     Serial.println("No se detecto eco");

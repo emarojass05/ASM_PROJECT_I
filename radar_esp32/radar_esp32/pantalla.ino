@@ -14,14 +14,14 @@ void iniciarPantalla() {
   lcd.clear();
 }
 
-void mostrarResultado(float distancia, float frecuencia) {
+void mostrarResultado(float distancia_cm, float frecuencia) {
 
   lcd.clear();
 
   lcd.setCursor(0, 0);
   lcd.print("Dist: ");
-  lcd.print(distancia, 2);
-  lcd.print(" m");
+  lcd.print(distancia_cm, 1);
+  lcd.print(" cm");
 
   lcd.setCursor(0, 1);
   lcd.print("F: ");
