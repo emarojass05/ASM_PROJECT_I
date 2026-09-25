@@ -17,6 +17,9 @@ uint8_t chirp[N];
 
 volatile int indiceChirp = 0;
 volatile bool reproduciendo = false;
+volatile bool chirpTerminado = false;
+volatile unsigned long tiempoInicio = 0;
+volatile unsigned long tiempoFin = 0;
 
 void generar_chirp(){
   float a = (F_FINAL - F_INICIAL) / DURACION;

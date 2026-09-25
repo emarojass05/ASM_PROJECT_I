@@ -12,6 +12,10 @@ const int LCD_SCL = 22;
 #define FS 48000 // frecuencia de muestreo
 hw_timer_t *timerChirp = NULL;
 
+// declaradas en captura_mic.ino, pero el archivo principal se compila primero
+extern hw_timer_t *timerMic;
+extern volatile bool capturaTerminada;
+
 
 void setup() {
   Serial.begin(115200);
