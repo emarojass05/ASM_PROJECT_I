@@ -1,7 +1,8 @@
 // archivo principal para compilacion
-// Implementacion del radar en fisico con microcontrolador ESP32 
+// Implementacion del radar en fisico con microcontrolador ESP32
 #include <math.h>
-#include <driver/adc.h>
+
+SET_LOOP_TASK_STACK_SIZE(16384); // el fft recursivo necesita mas stack que el default (8kb)
 
 // -------------------------- Pines y constantes ------------------------
 const int MIC = 34;
@@ -11,74 +12,53 @@ const int LCD_SCL = 22;
 #define FS 48000 // frecuencia de muestreo
 hw_timer_t *timerChirp = NULL;
 
-volatile unsigned long tiempoInicio = 0;
-volatile unsigned long tiempoFin = 0;
-volatile bool chirpTerminado = false;
-
-#define DURACION_CAPTURA 0.020
-const int N_MIC = FS * DURACION_CAPTURA;
-
-volatile uint16_t muestrasMic[N_MIC];
-
-volatile int indiceMic = 0;
-volatile bool capturandoMic = false;
-volatile bool capturaTerminada = false;
-
-hw_timer_t *timerMic = NULL;
 
 void setup() {
   Serial.begin(115200);
-  generar_chirp(); // crear el arreglo del chirp
 
-   // Timer del parlante
-    timerChirp = timerBegin(FS);
-    timerAttachInterrupt(timerChirp, &siguienteMuestra);
-    timerAlarm(timerChirp, 1, true, 0);
+  configurar_adc();
+  iniciarPantalla();
+  generar_chirp();     // crear el arreglo del chirp
+  prepararPlantilla(); // copia del chirp para correlacionar
 
-    // Timer del microfono
-    timerMic = timerBegin(FS);
-    timerAttachInterrupt(timerMic, &tomarMuestraMic);
-    timerAlarm(timerMic, 1, true, 0);
+  // El timer cuenta a 48 000 Hz
+  timerChirp = timerBegin(FS);
+  timerAttachInterrupt(timerChirp, &siguienteMuestra);
+  timerAlarm(timerChirp, 1, true, 0);
 
-    adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_11);
-
+  // Timer de captura del microfono, tambien a 48 000 Hz
+  timerMic = timerBegin(FS);
+  timerAttachInterrupt(timerMic, &tomarMuestraMic);
+  timerAlarm(timerMic, 1, true, 0);
 }
 
 void loop() {
 
-    iniciarCapturaMic();
+  iniciarCapturaMic();
+  reproducir_chirp();
 
-    reproducir_chirp();
+  while (!capturaTerminada) {
+    // esperar a que termine la ventana de captura
+  }
 
-    while (!capturaTerminada) {
-    }
+  int retardo = detectar_retardo();
+  float frecuencia = analizar_espectro();
 
-    // Analizar lo que recibio el microfono
-    uint16_t minimo = 4095;
-    uint16_t maximo = 0;
+  if (retardo >= 0) {
+    float distancia = calcular_distancia(retardo);
 
-    for (int i = 0; i < N_MIC; i++) {
+    Serial.print("Retardo: ");
+    Serial.print(retardo);
+    Serial.print(" muestras | Distancia: ");
+    Serial.print(distancia);
+    Serial.println(" m");
 
-        if (muestrasMic[i] < minimo) {
-            minimo = muestrasMic[i];
-        }
+    mostrarResultado(distancia, frecuencia);
 
-        if (muestrasMic[i] > maximo) {
-            maximo = muestrasMic[i];
-        }
-    }
+  } else {
+    Serial.println("No se detecto eco");
+    mostrarSinEco();
+  }
 
-    Serial.print("Min: ");
-    Serial.print(minimo);
-
-    Serial.print(" | Max: ");
-    Serial.print(maximo);
-
-    Serial.print(" | Amplitud: ");
-    Serial.println(maximo - minimo);
-
-    delay(1000);
+  delay(1000);
 }
-
-
