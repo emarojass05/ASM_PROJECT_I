@@ -36,7 +36,16 @@ void setup() {
   timerAlarm(timerMic, 1, true, 0);
 }
 
+unsigned long tiempoUltimoCiclo = 0;
+
 void loop() {
+
+  // en vez de delay(1000): comparamos timestamps para que el chirp suene cada 1 segundo,
+  // sin bloquear la ejecucion con una espera fija
+  if (millis() - tiempoUltimoCiclo < 1000) {
+    return;
+  }
+  tiempoUltimoCiclo = millis();
 
   iniciarCapturaMic();
   reproducir_chirp();
@@ -74,6 +83,4 @@ void loop() {
     Serial.println("No se detecto eco");
     mostrarSinEco();
   }
-
-  delay(1000);
 }
