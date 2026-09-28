@@ -9,7 +9,7 @@
 #define FS 48000 // frecuencia de muestreo
 #define F_INICIAL 2000.0
 #define F_FINAL 8000.0
-#define DURACION 0.0005 // 0.5ms: lo mas corto que sigue teniendo forma de chirp reconocible; da un minimo de ~14cm
+#define DURACION 0.0015 // 0.5ms no tenia energia suficiente para llegar mas alla de ~20cm; 1.5ms es un punto medio
 
 const int N = FS * DURACION; // numero de muestras
 

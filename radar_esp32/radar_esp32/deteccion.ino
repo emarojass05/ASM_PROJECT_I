@@ -2,8 +2,8 @@
 // deteccion del retardo del eco por correlacion y calculo de distancia
 
 #define V_SONIDO 343.0 // velocidad del sonido en m/s
-#define MUESTRAS_GUARDA 40 // debe ser mayor a N (24 con el chirp de 0.5ms); da un piso de ~14cm de distancia minima
-                           // el limite fisico real esta cerca de este valor, no se puede bajar mucho mas
+#define MUESTRAS_GUARDA 90 // debe ser mayor a N (72 con el chirp de 1.5ms); da un piso de ~32cm de distancia minima
+                           // calibrar con "cal" si hace falta ajustar
 
 float plantilla[N];
 
@@ -82,7 +82,7 @@ void calibrar_correlacion() {
 
   Serial.println("--- calibracion: top 5 picos de correlacion ---");
   for (int i = 0; i < TOP; i++) {
-    float distancia_cm = V_SONIDO * ((float)topK[i] / FS) / 2.0 * 100.0;
+    float distancia_cm = calcular_distancia(topK[i]) * 100.0; // usa el mismo contador que la deteccion normal
     Serial.print("Muestra: ");
     Serial.print(topK[i]);
     Serial.print(" | Correlacion: ");
@@ -126,6 +126,14 @@ int filtrar_retardo(int retardo) {
 }
 
 float calcular_distancia(int retardo_muestras) {
-  float tau = (float)retardo_muestras / FS;
+  // contador: cada muestra representa un incremento fijo de tiempo (periodo de muestreo)
+  const float PERIODO_MUESTREO_US = 1000000.0 / FS; // microsegundos por muestra
+
+  unsigned long tiempo_transcurrido_us = 0;
+  for (int i = 0; i < retardo_muestras; i++) {
+    tiempo_transcurrido_us += PERIODO_MUESTREO_US;
+  }
+
+  float tau = tiempo_transcurrido_us / 1000000.0; // de vuelta a segundos
   return V_SONIDO * tau / 2.0;
 }
