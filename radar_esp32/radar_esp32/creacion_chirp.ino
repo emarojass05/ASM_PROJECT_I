@@ -5,64 +5,55 @@
 // donde f0 es la frec incicial y f1 la final
 // T duracion total y t la variable en el tiempo
 
-// --------- constantes del chirp -----------------
-#define FS 48000 // frecuencia de muestreo
+#define FS 24000
 #define F_INICIAL 2000.0
 #define F_FINAL 8000.0
-#define DURACION 0.0015 // 0.5ms no tenia energia suficiente para llegar mas alla de ~20cm; 1.5ms es un punto medio
+#define DURACION 0.002
 
-const int N = FS * DURACION; // numero de muestras
 
-uint8_t chirp[N];
+uint8_t chirp[CHIRP_SIZE];
 
 volatile int indiceChirp = 0;
 volatile bool reproduciendo = false;
-volatile bool chirpTerminado = false;
-volatile unsigned long tiempoInicio = 0;
-volatile unsigned long tiempoFin = 0;
 
-void generar_chirp(){
+void generar_chirp() {
   float a = (F_FINAL - F_INICIAL) / DURACION;
 
-  for (int n = 0; n < N; n++) {
+  for (int n = 0; n < CHIRP_SIZE; n++) {
 
-    float t = (float)n / FS; // segundo del chirp
+    float t = (float)n / FS;
 
-    float fase = (2.0 * PI) * (F_INICIAL * t + 0.5 * a * (t * t)); // fase para la señal
+    float fase = 2.0 * PI *
+                 (F_INICIAL * t +
+                 0.5 * a * t * t);
 
     float muestra = sin(fase);
 
-    // para tenerlo en 8 bits:
     chirp[n] = (uint8_t)(127.5 + 127.5 * muestra);
   }
-} 
-
-void reproducir_chirp() {
-    indiceChirp = 0;
-    tiempoInicio = micros();
-    reproduciendo = true;
 }
 
+void reproducir_chirp() {
+  indiceChirp = 0;
+  reproduciendo = true;
+}
 
 void ARDUINO_ISR_ATTR siguienteMuestra() {
 
-    if (!reproduciendo) {
-        return;
-    }
+  if (!reproduciendo) {
+    return;
+  }
 
-    if (indiceChirp < N) {
+  if (indiceChirp < CHIRP_SIZE) {
 
-        dacWrite(SPEAKER, chirp[indiceChirp]);
-        indiceChirp++;
+    dacWrite(SPEAKER, chirp[indiceChirp]);
+    indiceChirp++;
 
-    } else {
+  } else {
 
-        tiempoFin = micros();
+    reproduciendo = false;
+    indiceChirp = 0;
 
-        reproduciendo = false;
-        indiceChirp = 0;
-        chirpTerminado = true;
-
-        dacWrite(SPEAKER, 128);
-    }
+    dacWrite(SPEAKER, 128);
+  }
 }

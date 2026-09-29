@@ -1,86 +1,411 @@
-// archivo principal para compilacion
-// Implementacion del radar en fisico con microcontrolador ESP32
 #include <math.h>
 
-SET_LOOP_TASK_STACK_SIZE(32768); // el fft recursivo necesita bastante mas stack que el default (8kb); 16kb no alcanzo
+// =========================================================
+// PINES
+// =========================================================
 
-// -------------------------- Pines y constantes ------------------------
 const int MIC = 34;
 const int SPEAKER = 25;
 const int LCD_SDA = 21;
 const int LCD_SCL = 22;
-#define FS 48000 // frecuencia de muestreo
+
+
+// =========================================================
+// CONSTANTES
+// =========================================================
+
+#define FS 24000
+
+#define FFT_SIZE 256
+#define CAPTURA_SIZE 256
+#define CHIRP_SIZE 48
+
+#define CORR_SIZE (CAPTURA_SIZE - CHIRP_SIZE + 1)
+#define CORR_FFT_SIZE 512
+
+
+// =========================================================
+// TIMER
+// =========================================================
+
 hw_timer_t *timerChirp = NULL;
 
-// declaradas en captura_mic.ino, pero el archivo principal se compila primero
-extern hw_timer_t *timerMic;
-extern volatile bool capturaTerminada;
+unsigned long tiempoAnterior = 0;
 
+const unsigned long intervalo = 1000;
+
+
+// =========================================================
+// RESULTADO DEL ECO
+// =========================================================
+
+struct ResultadoEco {
+
+  bool encontrado;
+
+  int picoDirecto;
+  int picoEco;
+
+  double valorDirecto;
+  double valorEco;
+
+  int diferenciaMuestras;
+
+  double tiempoVuelo;
+  double distancia;
+};
+
+
+// =========================================================
+// VARIABLES EXTERNAS
+// =========================================================
+
+extern double correlacionDirecta[CORR_SIZE];
+extern double correlacionFFT[CORR_SIZE];
+
+extern bool calibracionLista;
+
+
+// =========================================================
+// PROTOTIPOS MICROFONO
+// =========================================================
+
+void iniciarMicrofono();
+
+void capturarMicrofono();
+
+void centrarMuestras();
+
+
+// =========================================================
+// PROTOTIPOS CHIRP
+// =========================================================
+
+void generar_chirp();
+
+void reproducir_chirp();
+
+void ARDUINO_ISR_ATTR siguienteMuestra();
+
+
+// =========================================================
+// PROTOTIPOS FFT
+// =========================================================
+
+void calcularFFT();
+
+void imprimirBandaChirp();
+
+
+// =========================================================
+// PROTOTIPOS CORRELACION
+// =========================================================
+
+void prepararChirpCorrelacion();
+
+void calcularCorrelacionDirecta();
+
+void calcularCorrelacionFFT();
+
+
+ResultadoEco detectarEco(
+  double correlacion[],
+  int longitud,
+  double umbralEcoRelativo
+);
+
+
+void imprimirResultadoEco(
+  const char* nombre,
+  ResultadoEco resultado
+);
+
+
+void imprimirCandidatosEco(
+  double correlacion[],
+  int longitud,
+  int picoDirecto,
+  double umbralRelativo
+);
+
+
+// =========================================================
+// PROTOTIPOS CALIBRACION
+// =========================================================
+
+void guardarCalibracionBase(
+  int picoDirecto
+);
+
+
+void calcularDiferenciaCorrelacion(
+  int picoDirectoActual
+);
+
+
+int detectarEcoPorDiferencia(
+  int picoDirecto
+);
+
+
+void imprimirEcoPorDiferencia(
+  int picoDirecto,
+  int picoEco
+);
+
+
+// =========================================================
+// SETUP
+// =========================================================
 
 void setup() {
+
   Serial.begin(115200);
 
-  configurar_adc();
-  iniciarPantalla();
-  generar_chirp();     // crear el arreglo del chirp
-  prepararPlantilla(); // copia del chirp para correlacionar
 
-  // El timer cuenta a 48 000 Hz
+  // -------------------------------------------------------
+  // Microfono
+  // -------------------------------------------------------
+
+  iniciarMicrofono();
+
+
+  // -------------------------------------------------------
+  // Generar chirp
+  // -------------------------------------------------------
+
+  generar_chirp();
+
+
+  // Preparar versión centrada del chirp
+  // para correlación
+  prepararChirpCorrelacion();
+
+
+  // -------------------------------------------------------
+  // Timer del chirp
+  // -------------------------------------------------------
+
   timerChirp = timerBegin(FS);
-  timerAttachInterrupt(timerChirp, &siguienteMuestra);
-  timerAlarm(timerChirp, 1, true, 0);
 
-  // Timer de captura del microfono, tambien a 48 000 Hz
-  timerMic = timerBegin(FS);
-  timerAttachInterrupt(timerMic, &tomarMuestraMic);
-  timerAlarm(timerMic, 1, true, 0);
+  timerAttachInterrupt(
+    timerChirp,
+    &siguienteMuestra
+  );
+
+  timerAlarm(
+    timerChirp,
+    1,
+    true,
+    0
+  );
+
+
+  Serial.println();
+  Serial.println(
+    "======================================"
+  );
+
+  Serial.println(
+    "RADAR INICIADO"
+  );
+
+  Serial.println(
+    "Primera captura: mantener SIN OBJETO"
+  );
+
+  Serial.println(
+    "para realizar la calibracion."
+  );
+
+  Serial.println(
+    "======================================"
+  );
+
+  Serial.println();
 }
 
-unsigned long tiempoUltimoCiclo = 0;
+
+// =========================================================
+// LOOP
+// =========================================================
 
 void loop() {
 
-  // en vez de delay(1000): comparamos timestamps para que el chirp suene cada 1 segundo,
-  // sin bloquear la ejecucion con una espera fija
-  if (millis() - tiempoUltimoCiclo < 1000) {
-    return;
-  }
-  tiempoUltimoCiclo = millis();
+  unsigned long tiempoActual =
+      millis();
 
-  iniciarCapturaMic();
-  reproducir_chirp();
 
-  while (!capturaTerminada) {
-    // esperar a que termine la ventana de captura
-  }
+  if (
+    tiempoActual - tiempoAnterior
+    >= intervalo
+  ) {
 
-  // escribir "cal" en el Monitor Serial y enter para ver los 5 picos mas fuertes
-  // de esta captura (para calibrar MUESTRAS_GUARDA con datos reales)
-  if (Serial.available()) {
-    String comando = Serial.readStringUntil('\n');
-    comando.trim();
-    if (comando == "cal") {
-      calibrar_correlacion();
+    tiempoAnterior = tiempoActual;
+
+
+    // =====================================================
+    // 1. EMITIR CHIRP
+    // =====================================================
+
+    reproducir_chirp();
+
+
+    // =====================================================
+    // 2. CAPTURAR MICROFONO
+    // =====================================================
+
+    capturarMicrofono();
+
+
+    // =====================================================
+    // 3. ELIMINAR COMPONENTE DC
+    // =====================================================
+
+    centrarMuestras();
+
+
+    // =====================================================
+    // 4. FFT ESPECTRAL
+    // =====================================================
+
+    calcularFFT();
+
+    imprimirBandaChirp();
+
+
+    // =====================================================
+    // 5. CORRELACION DIRECTA
+    // =====================================================
+
+    calcularCorrelacionDirecta();
+
+    ResultadoEco ecoDirecta =
+        detectarEco(
+          correlacionDirecta,
+          CORR_SIZE,
+          0.25
+        );
+
+
+    // =====================================================
+    // 6. CORRELACION MEDIANTE FFT
+    // =====================================================
+
+    calcularCorrelacionFFT();
+
+    ResultadoEco ecoFFT =
+        detectarEco(
+          correlacionFFT,
+          CORR_SIZE,
+          0.25
+        );
+
+
+    // =====================================================
+    // 7. PRIMERA CAPTURA = CALIBRACION
+    // =====================================================
+
+    if (!calibracionLista) {
+
+      guardarCalibracionBase(
+        ecoFFT.picoDirecto
+      );
+
+      Serial.println();
+      Serial.println(
+        "======================================"
+      );
+
+      Serial.println(
+        "CALIBRACION TERMINADA"
+      );
+
+      Serial.println(
+        "Ahora puede colocar el objeto."
+      );
+
+      Serial.println(
+        "======================================"
+      );
+
+      Serial.println();
+
+      return;
     }
-  }
 
-  int retardo = filtrar_retardo(detectar_retardo());
-  float frecuencia = analizar_espectro();
 
-  if (retardo >= 0) {
-    float distancia_m = calcular_distancia(retardo);
-    float distancia_cm = distancia_m * 100.0;
+    // =====================================================
+    // 8. MOSTRAR CORRELACION DIRECTA
+    // =====================================================
 
-    Serial.print("Retardo: ");
-    Serial.print(retardo);
-    Serial.print(" muestras | Distancia: ");
-    Serial.print(distancia_cm);
-    Serial.println(" cm");
+    imprimirResultadoEco(
+      "CORRELACION DIRECTA",
+      ecoDirecta
+    );
 
-    mostrarResultado(distancia_cm, frecuencia);
 
-  } else {
-    Serial.println("No se detecto eco");
-    mostrarSinEco();
+    // =====================================================
+    // 9. MOSTRAR CORRELACION FFT
+    // =====================================================
+
+    imprimirResultadoEco(
+      "CORRELACION FFT",
+      ecoFFT
+    );
+
+
+    // =====================================================
+    // 10. MOSTRAR CANDIDATOS
+    // =====================================================
+
+    imprimirCandidatosEco(
+      correlacionFFT,
+      CORR_SIZE,
+      ecoFFT.picoDirecto,
+      0.20
+    );
+
+
+    // =====================================================
+    // 11. COMPARAR CONTRA CALIBRACION
+    // =====================================================
+
+    calcularDiferenciaCorrelacion(
+      ecoFFT.picoDirecto
+    );
+
+
+    // =====================================================
+    // 12. BUSCAR ECO EN LA DIFERENCIA
+    // =====================================================
+
+    int picoEcoCalibrado =
+        detectarEcoPorDiferencia(
+          ecoFFT.picoDirecto
+        );
+
+
+    // =====================================================
+    // 13. CALCULAR Y MOSTRAR DISTANCIA
+    // =====================================================
+
+    imprimirEcoPorDiferencia(
+      ecoFFT.picoDirecto,
+      picoEcoCalibrado
+    );
+
+
+    // =====================================================
+    // 14. SEPARADOR
+    // =====================================================
+
+    Serial.println();
+
+    Serial.println(
+      "========================================"
+    );
+
+    Serial.println();
   }
 }
