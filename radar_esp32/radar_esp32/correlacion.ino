@@ -614,11 +614,14 @@ ResultadoEco detectarEco(
       maxDerecha
     ) {
 
-      if (valor > maxEco) {
-
-        maxEco = valor;
-        indiceEco = i;
-      }
+      // Tomamos el PRIMER pico que supera el umbral
+      // (el reflejo mas cercano en el tiempo), no el
+      // de mayor amplitud en toda la ventana. Un lobulo
+      // lejano mas fuerte (autocorrelacion del chirp u
+      // otra reflexion) ya no reemplaza al primero.
+      maxEco = valor;
+      indiceEco = i;
+      break;
     }
   }
 
@@ -854,8 +857,27 @@ int detectarEcoPorDiferencia(
     return -1;
   }
 
-  double maxDiferencia = 0.0;
-  int mejorIndice = -1;
+  // -------------------------------------------------------
+  // Umbral relativo respecto a la mayor diferencia en la
+  // ventana de busqueda. Sin esto, cualquier fluctuacion
+  // minima despues del bloqueo se tomaria como eco.
+  // -------------------------------------------------------
+
+  double maximoGlobal = 0.0;
+
+  for (int i = inicio; i < CORR_SIZE - 1; i++) {
+
+    if (diferenciaCorrelacion[i] > maximoGlobal) {
+      maximoGlobal = diferenciaCorrelacion[i];
+    }
+  }
+
+  if (maximoGlobal == 0.0) {
+    return -1;
+  }
+
+  const double umbralRelativo = 0.25;
+  double umbral = maximoGlobal * umbralRelativo;
 
   for (
     int i = inicio;
@@ -866,6 +888,10 @@ int detectarEcoPorDiferencia(
     double valor =
         diferenciaCorrelacion[i];
 
+    if (valor < umbral) {
+      continue;
+    }
+
     // Queremos un máximo local
     bool maxLocal =
         valor > diferenciaCorrelacion[i - 1] &&
@@ -875,14 +901,13 @@ int detectarEcoPorDiferencia(
       continue;
     }
 
-    if (valor > maxDiferencia) {
-
-      maxDiferencia = valor;
-      mejorIndice = i;
-    }
+    // Tomamos el PRIMER maximo local que supere el
+    // umbral (reflejo mas cercano en el tiempo), no el
+    // de mayor diferencia en toda la ventana.
+    return i;
   }
 
-  return mejorIndice;
+  return -1;
 }
 void imprimirEcoPorDiferencia(
   int picoDirecto,
