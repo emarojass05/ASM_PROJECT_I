@@ -18,6 +18,7 @@ double corrYImag[CORR_FFT_SIZE];
 
 double correlacionBase[CORR_SIZE];
 double diferenciaCorrelacion[CORR_SIZE];
+double diferenciaSuavizada[CORR_SIZE];
 
 bool calibracionLista = false;
 int picoDirectoBase = -1;
@@ -803,6 +804,35 @@ void guardarCalibracionBase(int picoDirecto) {
   Serial.print("Calibracion base guardada. Pico directo base: ");
   Serial.println(picoDirectoBase);
 }
+
+void suavizarDiferenciaCorrelacion() {
+
+  const int RADIO = 3;  // ventana total = 7 muestras
+
+  for (int i = 0; i < CORR_SIZE; i++) {
+
+    double suma = 0.0;
+    int cantidad = 0;
+
+    for (int j = -RADIO; j <= RADIO; j++) {
+
+      int indice = i + j;
+
+      if (
+        indice >= 0 &&
+        indice < CORR_SIZE
+      ) {
+
+        suma += diferenciaCorrelacion[indice];
+        cantidad++;
+      }
+    }
+
+    diferenciaSuavizada[i] =
+        suma / cantidad;
+  }
+}
+
 void calcularDiferenciaCorrelacion(int picoDirectoActual) {
 
   if (!calibracionLista) {
@@ -843,10 +873,6 @@ int detectarEcoPorDiferencia(
     return -1;
   }
 
-  // -------------------------------------------------------
-  // Distancia mínima permitida
-  // -------------------------------------------------------
-
   int muestrasMinimas =
       (int)ceil(
         (2.0 * DISTANCIA_MINIMA /
@@ -862,47 +888,16 @@ int detectarEcoPorDiferencia(
   }
 
 
-  // -------------------------------------------------------
-  // 1. Buscar la mayor diferencia
-  // -------------------------------------------------------
+  // Suavizar primero la diferencia
+  suavizarDiferenciaCorrelacion();
 
-  double maximoGlobal = 0.0;
-
-  for (int i = inicio; i < CORR_SIZE - 1; i++) {
-
-    if (
-      diferenciaCorrelacion[i] >
-      maximoGlobal
-    ) {
-
-      maximoGlobal =
-          diferenciaCorrelacion[i];
-    }
-  }
-
-  if (maximoGlobal <= 0.0) {
-    return -1;
-  }
-
-
-  // -------------------------------------------------------
-  // 2. Umbral
-  // -------------------------------------------------------
-
-  const double umbralRelativo = 0.25;
-
-  double umbral =
-      maximoGlobal * umbralRelativo;
-
-
-  // -------------------------------------------------------
-  // 3. Buscar TODOS los máximos locales
-  //    y conservar el más fuerte
-  // -------------------------------------------------------
 
   double mejorValor = 0.0;
   int mejorIndice = -1;
 
+
+  // Buscar máximo de la ENVOLVENTE,
+  // no de cada pequeño lóbulo individual.
   for (
     int i = inicio;
     i < CORR_SIZE - 1;
@@ -910,19 +905,15 @@ int detectarEcoPorDiferencia(
   ) {
 
     double valor =
-        diferenciaCorrelacion[i];
-
-    if (valor < umbral) {
-      continue;
-    }
+        diferenciaSuavizada[i];
 
 
     bool maxLocal =
         valor >
-          diferenciaCorrelacion[i - 1]
+          diferenciaSuavizada[i - 1]
         &&
         valor >=
-          diferenciaCorrelacion[i + 1];
+          diferenciaSuavizada[i + 1];
 
 
     if (!maxLocal) {
@@ -930,9 +921,6 @@ int detectarEcoPorDiferencia(
     }
 
 
-    // Ya NO retornamos el primero.
-    // Buscamos el cambio más grande respecto
-    // a la calibración sin objeto.
     if (valor > mejorValor) {
 
       mejorValor = valor;
