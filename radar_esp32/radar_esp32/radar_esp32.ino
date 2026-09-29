@@ -154,6 +154,11 @@ void imprimirEcoPorDiferencia(
 );
 
 
+void imprimirCandidatosDiferencia(
+  int picoDirecto
+);
+
+
 // =========================================================
 // SETUP
 // =========================================================
@@ -164,7 +169,7 @@ void setup() {
 
 
   // -------------------------------------------------------
-  // Microfono
+  // Inicializar microfono
   // -------------------------------------------------------
 
   iniciarMicrofono();
@@ -177,8 +182,7 @@ void setup() {
   generar_chirp();
 
 
-  // Preparar versión centrada del chirp
-  // para correlación
+  // Preparar referencia centrada del chirp
   prepararChirpCorrelacion();
 
 
@@ -201,7 +205,12 @@ void setup() {
   );
 
 
+  // -------------------------------------------------------
+  // Mensaje inicial
+  // -------------------------------------------------------
+
   Serial.println();
+
   Serial.println(
     "======================================"
   );
@@ -303,7 +312,7 @@ void loop() {
 
 
     // =====================================================
-    // 7. PRIMERA CAPTURA = CALIBRACION
+    // 7. PRIMERA CAPTURA = CALIBRACION SIN OBJETO
     // =====================================================
 
     if (!calibracionLista) {
@@ -313,6 +322,7 @@ void loop() {
       );
 
       Serial.println();
+
       Serial.println(
         "======================================"
       );
@@ -336,7 +346,7 @@ void loop() {
 
 
     // =====================================================
-    // 8. MOSTRAR CORRELACION DIRECTA
+    // 8. RESULTADO CORRELACION DIRECTA
     // =====================================================
 
     imprimirResultadoEco(
@@ -346,7 +356,7 @@ void loop() {
 
 
     // =====================================================
-    // 9. MOSTRAR CORRELACION FFT
+    // 9. RESULTADO CORRELACION FFT
     // =====================================================
 
     imprimirResultadoEco(
@@ -356,7 +366,7 @@ void loop() {
 
 
     // =====================================================
-    // 10. MOSTRAR CANDIDATOS
+    // 10. CANDIDATOS DE LA CORRELACION
     // =====================================================
 
     imprimirCandidatosEco(
@@ -368,7 +378,7 @@ void loop() {
 
 
     // =====================================================
-    // 11. COMPARAR CONTRA CALIBRACION
+    // 11. COMPARAR CONTRA CALIBRACION SIN OBJETO
     // =====================================================
 
     calcularDiferenciaCorrelacion(
@@ -377,7 +387,16 @@ void loop() {
 
 
     // =====================================================
-    // 12. BUSCAR ECO EN LA DIFERENCIA
+    // 12. MOSTRAR CANDIDATOS DESPUES DE CALIBRACION
+    // =====================================================
+
+    imprimirCandidatosDiferencia(
+      ecoFFT.picoDirecto
+    );
+
+
+    // =====================================================
+    // 13. DETECTAR ECO MEDIANTE DIFERENCIA
     // =====================================================
 
     int picoEcoCalibrado =
@@ -387,7 +406,7 @@ void loop() {
 
 
     // =====================================================
-    // 13. CALCULAR Y MOSTRAR DISTANCIA
+    // 14. CALCULAR Y MOSTRAR DISTANCIA CALIBRADA
     // =====================================================
 
     imprimirEcoPorDiferencia(
@@ -397,7 +416,7 @@ void loop() {
 
 
     // =====================================================
-    // 14. SEPARADOR
+    // 15. SEPARADOR
     // =====================================================
 
     Serial.println();

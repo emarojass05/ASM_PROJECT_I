@@ -513,7 +513,7 @@ ResultadoEco detectarEco(
 
     60 muestras son 2.5 ms a 24 kHz.
   */
-  int limiteDirecto = 60;
+  int limiteDirecto = 30;
 
   if (limiteDirecto > longitud) {
     limiteDirecto = longitud;
@@ -843,6 +843,10 @@ int detectarEcoPorDiferencia(
     return -1;
   }
 
+  // -------------------------------------------------------
+  // Distancia mínima permitida
+  // -------------------------------------------------------
+
   int muestrasMinimas =
       (int)ceil(
         (2.0 * DISTANCIA_MINIMA /
@@ -857,27 +861,47 @@ int detectarEcoPorDiferencia(
     return -1;
   }
 
+
   // -------------------------------------------------------
-  // Umbral relativo respecto a la mayor diferencia en la
-  // ventana de busqueda. Sin esto, cualquier fluctuacion
-  // minima despues del bloqueo se tomaria como eco.
+  // 1. Buscar la mayor diferencia
   // -------------------------------------------------------
 
   double maximoGlobal = 0.0;
 
   for (int i = inicio; i < CORR_SIZE - 1; i++) {
 
-    if (diferenciaCorrelacion[i] > maximoGlobal) {
-      maximoGlobal = diferenciaCorrelacion[i];
+    if (
+      diferenciaCorrelacion[i] >
+      maximoGlobal
+    ) {
+
+      maximoGlobal =
+          diferenciaCorrelacion[i];
     }
   }
 
-  if (maximoGlobal == 0.0) {
+  if (maximoGlobal <= 0.0) {
     return -1;
   }
 
+
+  // -------------------------------------------------------
+  // 2. Umbral
+  // -------------------------------------------------------
+
   const double umbralRelativo = 0.25;
-  double umbral = maximoGlobal * umbralRelativo;
+
+  double umbral =
+      maximoGlobal * umbralRelativo;
+
+
+  // -------------------------------------------------------
+  // 3. Buscar TODOS los máximos locales
+  //    y conservar el más fuerte
+  // -------------------------------------------------------
+
+  double mejorValor = 0.0;
+  int mejorIndice = -1;
 
   for (
     int i = inicio;
@@ -892,35 +916,121 @@ int detectarEcoPorDiferencia(
       continue;
     }
 
-    // Queremos un máximo local
+
     bool maxLocal =
-        valor > diferenciaCorrelacion[i - 1] &&
-        valor >= diferenciaCorrelacion[i + 1];
+        valor >
+          diferenciaCorrelacion[i - 1]
+        &&
+        valor >=
+          diferenciaCorrelacion[i + 1];
+
 
     if (!maxLocal) {
       continue;
     }
 
-    // Tomamos el PRIMER maximo local que supere el
-    // umbral (reflejo mas cercano en el tiempo), no el
-    // de mayor diferencia en toda la ventana.
-    return i;
+
+    // Ya NO retornamos el primero.
+    // Buscamos el cambio más grande respecto
+    // a la calibración sin objeto.
+    if (valor > mejorValor) {
+
+      mejorValor = valor;
+      mejorIndice = i;
+    }
   }
 
-  return -1;
+
+  return mejorIndice;
 }
+
+
+void imprimirCandidatosDiferencia(
+  int picoDirecto
+) {
+
+  int muestrasMinimas =
+      (int)ceil(
+        (2.0 * DISTANCIA_MINIMA /
+         VELOCIDAD_SONIDO)
+        * FS
+      );
+
+  int inicio =
+      picoDirecto + muestrasMinimas;
+
+
+  Serial.println(
+    "------ CANDIDATOS POR CALIBRACION ------"
+  );
+
+
+  for (
+    int i = inicio;
+    i < CORR_SIZE - 1;
+    i++
+  ) {
+
+    double valor =
+        diferenciaCorrelacion[i];
+
+    bool maxLocal =
+        valor >
+          diferenciaCorrelacion[i - 1]
+        &&
+        valor >=
+          diferenciaCorrelacion[i + 1];
+
+    if (!maxLocal) {
+      continue;
+    }
+
+
+    int delta =
+        i - picoDirecto;
+
+    double tiempo =
+        (double)delta / FS;
+
+    double distancia =
+        VELOCIDAD_SONIDO *
+        tiempo / 2.0;
+
+
+    Serial.print("muestra: ");
+    Serial.print(i);
+
+    Serial.print(" | delta: ");
+    Serial.print(delta);
+
+    Serial.print(" | diferencia: ");
+    Serial.print(valor);
+
+    Serial.print(" | distancia: ");
+    Serial.print(
+      distancia * 100.0,
+      2
+    );
+
+    Serial.println(" cm");
+  }
+}
+
 void imprimirEcoPorDiferencia(
   int picoDirecto,
   int picoEco
 ) {
 
   Serial.println();
+
   Serial.println(
     "------ ECO POR CALIBRACION ------"
   );
 
+
   Serial.print("Pico directo: ");
   Serial.println(picoDirecto);
+
 
   if (picoEco < 0) {
 
@@ -931,11 +1041,14 @@ void imprimirEcoPorDiferencia(
     return;
   }
 
+
   int delta =
       picoEco - picoDirecto;
 
+
   double tiempo =
       (double)delta / FS;
+
 
   double distancia =
       (
@@ -944,18 +1057,43 @@ void imprimirEcoPorDiferencia(
       )
       / 2.0;
 
+
   Serial.print("Pico eco: ");
   Serial.println(picoEco);
 
+
   Serial.print("Delta: ");
   Serial.print(delta);
-  Serial.println(" muestras");
 
-  Serial.print("Tiempo de vuelo: ");
-  Serial.print(tiempo * 1000.0, 3);
-  Serial.println(" ms");
+  Serial.println(
+    " muestras"
+  );
 
-  Serial.print("Distancia estimada: ");
-  Serial.print(distancia * 100.0, 2);
-  Serial.println(" cm");
+
+  Serial.print(
+    "Tiempo de vuelo: "
+  );
+
+  Serial.print(
+    tiempo * 1000.0,
+    3
+  );
+
+  Serial.println(
+    " ms"
+  );
+
+
+  Serial.print(
+    "Distancia estimada: "
+  );
+
+  Serial.print(
+    distancia * 100.0,
+    2
+  );
+
+  Serial.println(
+    " cm"
+  );
 }
