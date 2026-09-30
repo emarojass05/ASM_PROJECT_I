@@ -219,3 +219,4 @@ __marimo__/
 
 # JetBrains IDE
 .idea/
+**/.DS_Store
